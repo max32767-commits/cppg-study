@@ -1,0 +1,228 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0F1115">
+<title>CPPG 숫자 카드</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=IBM+Plex+Mono:wght@500;700&display=swap">
+<style>
+/* Layout: 쇼츠형 세로 카드 한 장이 화면을 채움. 위로 스와이프/↓키로 다음, 탭으로 뒤집기. 카테고리별 배경색이 카드의 유일한 장식. */
+:root{
+  --bg:#0F1115; --fg:#F4F4F2; --muted:#9BA0A8; --card:#1A1D23; --line:#2A2E36;
+  --accent:#FFB400; --ok:#43C59E; --bad:#FF6B6B;
+  --c기한:#1E3A5F; --c인원:#2F4858; --c금액:#4A3728; --c비율:#3A2E5C; --c주체:#1F4D3A; --c개념:#4B2A3F; --c기술:#2B3A4B;
+  --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif; --mono:"IBM Plex Mono",ui-monospace,monospace;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]){
+  --bg:#F3F2EE; --fg:#15171C; --muted:#5F646D; --card:#FFFFFF; --line:#E0DFD9; --accent:#C97A00;
+  --c기한:#D9E6F5; --c인원:#DCE8EC; --c금액:#F3E6D6; --c비율:#E6DEF5; --c주체:#D8EEE2; --c개념:#F0DCE8; --c기술:#DEE6EF; color-scheme:light } }
+:root[data-theme="light"]{
+  --bg:#F3F2EE; --fg:#15171C; --muted:#5F646D; --card:#FFFFFF; --line:#E0DFD9; --accent:#C97A00;
+  --c기한:#D9E6F5; --c인원:#DCE8EC; --c금액:#F3E6D6; --c비율:#E6DEF5; --c주체:#D8EEE2; --c개념:#F0DCE8; --c기술:#DEE6EF; color-scheme:light }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--font);overflow:hidden;-webkit-tap-highlight-color:transparent}
+.app{height:100%;display:flex;flex-direction:column;max-width:520px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px 12px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--muted);font-family:var(--mono);font-variant-numeric:tabular-nums}
+.top select,.top button{font-family:inherit;font-size:12px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:999px;padding:5px 10px;cursor:pointer}
+.top button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.bar{height:3px;background:var(--line);border-radius:2px;margin:8px 0 10px;overflow:hidden}.bar>i{display:block;height:100%;background:var(--accent);width:0;transition:width .25s}
+.stage{flex:1;position:relative;perspective:1200px;min-height:0}
+.card{position:absolute;inset:0;border-radius:24px;transform-style:preserve-3d;transition:transform .45s cubic-bezier(.2,.8,.2,1),opacity .3s;cursor:pointer;will-change:transform}
+.card.flip{transform:rotateY(180deg)}
+.card.out-up{transform:translateY(-110%) rotate(-3deg);opacity:0}
+.card.out-down{transform:translateY(110%) rotate(3deg);opacity:0}
+.face{position:absolute;inset:0;border-radius:24px;padding:28px 24px;display:flex;flex-direction:column;backface-visibility:hidden;-webkit-backface-visibility:hidden;background:var(--card);border:1px solid var(--line)}
+.back{transform:rotateY(180deg)}
+.tag{font-family:var(--mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;justify-content:space-between}
+.tag b{color:var(--fg);font-weight:500}
+.q{flex:1;display:flex;align-items:center;font-size:clamp(22px,5.5vw,30px);font-weight:700;line-height:1.35;text-wrap:balance;word-break:keep-all}
+.hint{font-size:13px;color:var(--muted);text-align:center}
+.a{flex:1;display:flex;flex-direction:column;justify-content:center;gap:14px}
+.a .big{font-size:clamp(26px,7vw,40px);font-weight:900;line-height:1.25;word-break:keep-all;text-wrap:balance;color:var(--accent)}
+.a .q2{font-size:14px;color:var(--muted);line-height:1.5}
+.trap{border-top:1px solid var(--line);padding-top:12px;font-size:14px;line-height:1.55;color:var(--fg)}
+.trap::before{content:"함정 ";font-family:var(--mono);font-size:11px;color:var(--bad);letter-spacing:.1em}
+.ctrl{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.ctrl button{font-family:inherit;font-size:15px;font-weight:700;padding:14px 8px;border-radius:14px;border:1px solid var(--line);background:var(--card);color:var(--fg);cursor:pointer}
+.ctrl button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.ctrl .know{color:var(--ok)}.ctrl .miss{color:var(--bad)}
+.done{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;border-radius:24px;background:var(--card);border:1px solid var(--line);padding:24px}
+.done .n{font-family:var(--mono);font-size:44px;font-weight:700}
+.done button{font-family:inherit;font-size:15px;padding:12px 18px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--fg);cursor:pointer}
+@media (prefers-reduced-motion:reduce){.card,.bar>i{transition:none}}
+</style></head><body>
+
+<div class="app">
+  <div class="top">
+    <span id="pos">0 / 0</span>
+    <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">
+      <select id="cat" aria-label="범주"><option value="">전체</option><option>기한</option><option>인원</option><option>금액</option><option>비율</option><option>주체</option><option>개념</option><option>기술</option></select>
+      <button id="missOnly" aria-pressed="false" title="틀린 카드만">틀린 것만</button>
+      <button id="auto" aria-pressed="false" title="자동 넘김">자동</button>
+      <button id="tts" aria-pressed="false" title="읽어주기">🔊</button>
+    </span>
+  </div>
+  <div class="bar"><i id="barI"></i></div>
+  <div class="stage" id="stage"></div>
+  <div class="ctrl">
+    <button class="miss" id="bMiss">몰랐다</button>
+    <button id="bFlip">뒤집기</button>
+    <button class="know" id="bKnow">알았다</button>
+  </div>
+</div>
+
+<script>
+// CPPG 카드 — 앞면: 질문 / 뒷면: 정답 + 함정. 법령 기준 2026.10.25
+window.CPPG_CARDS = [
+// ① 기한 — 일·시간
+{c:"기한",q:"정보주체가 수집출처 고지를 요구하면 언제까지?",a:"즉시",t:"\"10일 이내\"는 오답. 법 제20조①"},
+{c:"기한",q:"파기 \"지체 없이\"의 구체 기준은?",a:"5일 이내",t:"법률이 아니라 표준 개인정보 보호지침에 있는 숫자"},
+{c:"기한",q:"국외이전 중지명령에 대한 이의 제기 기간은?",a:"7일",t:"명령 주체는 보호위원회. 과기정통부 ✕"},
+{c:"기한",q:"열람·정정·삭제·처리정지 조치 기한은?",a:"10일",t:"30일은 단골 오답(정보공개법·자동화 결정과 혼동)"},
+{c:"기한",q:"집단분쟁조정 개시 공고 기간은?",a:"14일 이상",t:"광고 수신거부 처리결과 통지도 14일"},
+{c:"기한",q:"조정안을 받고 15일 내 무응답이면?",a:"수락한 것으로 본다",t:"\"거부 간주\"는 2023 개정 전 구법"},
+{c:"기한",q:"분쟁조정 심사·조정안 작성 기한은?",a:"60일 (연장 가능)",t:"30일·90일 오답"},
+{c:"기한",q:"유출등 통지·신고 기한은?",a:"72시간",t:"24시간은 구 정통망법. 유출 가능성 통지(2026 신설)도 72시간"},
+{c:"기한",q:"유출 통지를 홈페이지 30일 게재로 갈음할 수 있는 요건은?",a:"연락처 불명 등 정당한 사유",t:"\"1천명 이상이면 게재\"는 오답 — 1천명은 신고 기준"},
+{c:"기한",q:"자동화된 결정 거부·설명 요구에 대한 조치 기한은?",a:"30일",t:"열람 등 다른 권리는 10일"},
+{c:"기한",q:"공공기관 목적 외 이용 후 관보·홈페이지 게재 기한은?",a:"30일 내 게재, 홈페이지는 10일 이상 유지",t:"공공기관만. 민간은 관보 게재 의무 없음"},
+{c:"기한",q:"ISMS-P 심사 결함 보완조치 기간은?",a:"40일, 재조치 요구 시 60일 추가 (최대 100일)",t:"\"연장 60일\"이 아니라 재조치 60일"},
+{c:"기한",q:"야간 광고 전송에 별도 동의가 필요한 시간대는?",a:"21시~08시",t:"전자우편은 제외"},
+// ② 월·년
+{c:"기한",q:"영향평가 단기 개선과제 이행결과 제출 기한은?",a:"2개월 (2024.10 고시)",t:"영향평가서 \"완료 후 2개월\"은 2023 삭제 → 운용·변경 전 제출"},
+{c:"기한",q:"대규모 처리자의 수집출처 선제 통지 기한은?",a:"제공받은 날부터 3개월",t:"대상: 민감·고유 5만명 / 일반 100만명"},
+{c:"기한",q:"CPO 지정·변경 시 보호위원회 신고 기한은?",a:"사유 발생일부터 6개월 (1년 연장 가능)",t:"2026.9.11 시행. 기존 대상은 2027.3.11까지, 계도 2027.12.31"},
+{c:"기한",q:"접속기록 기본 보관 기간은?",a:"1년",t:"5만명 이상·고유식별·민감·기간통신은 2년. 접근권한 기록은 3년"},
+{c:"기한",q:"접근권한 부여·변경·말소 기록 보관 기간은?",a:"3년",t:"접속기록 1년과 바꿔서 출제"},
+{c:"기한",q:"접속기록 점검 주기는?",a:"내부 관리계획에 정한 주기·방법 (2025.10.31 개정, 2026.10.31 시행)",t:"\"월 1회 이상\" 문구는 삭제됨"},
+{c:"기한",q:"고유식별정보 안전조치 조사 주기는?",a:"3년",t:"2년은 구법(2024.3 개정 전)"},
+{c:"기한",q:"개인정보 보호 기본계획 주기와 주체는?",a:"3년마다, 보호위원회",t:"시행계획은 중앙행정기관의 장이 매년"},
+{c:"기한",q:"ISMS-P 유효기간과 사후심사 주기는?",a:"3년 / 매년 1회 이상",t:"신청 전 최소 운영 2개월"},
+{c:"기한",q:"CPO 전문성 요건 경력은?",a:"합산 4년, 그중 개인정보보호 2년",t:"\"개인정보보호 경력 4년\"은 오답"},
+{c:"기한",q:"보호위원회 위원 임기는?",a:"3년, 한 차례 연임",t:"위원장·부위원장 포함 9명"},
+// ③ 인원
+{c:"인원",q:"개인정보 보호위원회 위원 수는?",a:"9명",t:"분쟁조정위원회 30명과 혼동 유도"},
+{c:"인원",q:"분쟁조정위원회 위원 수는?",a:"30명 이내",t:"20명은 구법"},
+{c:"인원",q:"집단분쟁조정 피해 정보주체 기준은?",a:"50명 이상 (신청인 제외)",t:"100명은 단체소송 요청 정보주체"},
+{c:"인원",q:"비영리단체 단체소송 요건은?",a:"정보주체 100명 요청 + 상시 구성원 5천명",t:"소비자단체는 정회원 1천명·등록 3년. 청구는 금지·중지만"},
+{c:"인원",q:"유출등 신고 대상 3가지는?",a:"1천명 이상 / 민감·고유식별(인원 무관) / 해킹 등 불법 접근",t:"신고처: 보호위원회 또는 KISA"},
+{c:"인원",q:"내부 관리계획 수립이 면제되는 소상공인 기준은?",a:"1만명 미만 보유",t:"1만명은 손해배상 보장·ISMS 학교·공공 고유식별 조사에도 쓰임"},
+{c:"인원",q:"CPO 전문성 요건의 대학 재학생 기준은?",a:"2만명",t:"ISMS 의무 학교는 1만명"},
+{c:"인원",q:"영향평가 대상 파일 기준 세 가지는?",a:"민감·고유식별 5만 / 연계 50만 / 일반 100만",t:"\"10만명\" 기준은 없다. 공공기관만 의무"},
+{c:"인원",q:"5만명이 쓰이는 곳 다섯 가지?",a:"영향평가·수집출처 통지·접속기록 2년·고유식별 조사(민간)·CPO 요건",t:"모두 \"민감·고유식별정보\" 기준"},
+{c:"인원",q:"징벌적 과징금의 대규모 피해 기준은?",a:"1천만명",t:"100만명은 오답(영향평가·국내대리인·CPO 숫자)"},
+{c:"인원",q:"국내대리인 지정 기준은?",a:"전체 매출 1조 / 정통 매출 100억 / 일평균 정보주체 100만",t:"국내 주소·영업소가 없는 자만"},
+// ④ 금액
+{c:"금액",q:"법정손해배상 상한은?",a:"300만원",t:"입증 없이 청구, 사실심 변론종결 전 변경 가능"},
+{c:"금액",q:"현행 과태료 5천만원 구간은?",a:"영상기기 금지장소 설치 / 이동형 위반 촬영 — 두 가지만",t:"\"동의 없는 수집 5천만 과태료\"는 구법. 현행은 과징금"},
+{c:"금액",q:"CPO 미지정 과태료는?",a:"3천만원 (2026 개정으로 1천만→3천만)",t:"이사회 미의결·미신고도 같은 구간"},
+{c:"금액",q:"안내판 미설치 과태료는?",a:"없음 → 시정명령 후 불이행 시 3천만",t:"\"미설치 1천만\"은 2023 삭제된 구법"},
+{c:"금액",q:"손해배상 보장 의무 기준은?",a:"매출 10억 이상 + 일평균 정보주체 1만명 이상",t:"1,500억·100만명 상향은 발표만, 미공포"},
+{c:"금액",q:"일반 과징금 산정 곤란 시 상한은?",a:"20억원",t:"징벌은 50억원"},
+{c:"금액",q:"ISMS 의무 상급종합병원·학교의 매출 기준은?",a:"1,500억원 이상",t:"CPO 기준은 2026.9.11부터 1,800억 초과로 변경"},
+{c:"금액",q:"CPO 전문성·신고 대상 매출 기준은?",a:"1,800억원 초과 (+100만명 또는 민감·고유 5만명)",t:"1,500억은 구법"},
+{c:"금액",q:"제70조 최고 형벌은?",a:"10년 이하 징역 / 1억원 이하 벌금",t:"공공기관 정보 변경·말소로 업무 마비, 부정 취득 정보 영리 제공"},
+{c:"금액",q:"동의 없는 제3자 제공의 형벌은?",a:"5년 / 5천만원 (제71조)",t:"동의 없는 \"수집\"은 형벌이 아니라 과징금"},
+// ⑤ 배수·비율
+{c:"비율",q:"동의 없는 수집에 대한 제재는?",a:"과징금 — 전체 매출액의 3% 이하",t:"과태료 5천만(구법)·형벌 ✕"},
+{c:"비율",q:"일반 과징금의 매출 기준은?",a:"전체 매출액 3% (관련 없는 매출만 제외)",t:"\"관련 매출액의 3%\"는 2023 개정 전 구법"},
+{c:"비율",q:"징벌적 과징금(2026 신설) 비율과 사유는?",a:"전체 매출 10% / 50억 — 3년 내 반복·1천만명·시정명령 불이행",t:"고의·중과실 요건"},
+{c:"비율",q:"과징금 감경률 상한 — ISMS-P / 자율규약 / 보호수준평가?",a:"30% / 20% / 15%",t:"구 50/40/30%는 오답. 사전 보호투자는 최대 40%"},
+{c:"비율",q:"징벌적 손해배상 배수는?",a:"5배 (고의·중과실 유출등)",t:"3배는 구법"},
+{c:"비율",q:"GDPR 과징금 상한은?",a:"전 세계 매출 4% 또는 2천만 유로",t:"침해 통지 72시간은 우리 법과 같음"},
+// 주체·개념 함정
+{c:"주체",q:"기본계획 수립 주체 / 시행계획 수립 주체는?",a:"보호위원회 / 중앙행정기관의 장",t:"\"국무총리가 기본계획\"은 오답"},
+{c:"주체",q:"개인정보 처리·보호의 최종 책임자는?",a:"사업주·대표자 (제30조의3, 2026 신설)",t:"\"최종 책임자는 CPO\"는 오답"},
+{c:"주체",q:"CPO 지정·변경·해제 시 필요한 절차는?",a:"이사회 의결 + 보호위원회 신고",t:"주주총회·국회 ✕"},
+{c:"주체",q:"개인정보파일 등록 의무가 있는 자는?",a:"공공기관만",t:"민간 등록 의무 ✕. 영향평가 의무도 공공만"},
+{c:"주체",q:"가명정보 결합은 누가, 반출 승인은 누가?",a:"결합전문기관 / 전문기관의 장",t:"처리자 자체 결합 ✕, 보호위 승인 ✕"},
+{c:"주체",q:"유출 신고처는?",a:"보호위원회 또는 KISA",t:"행안부·방통위가 주체로 나오면 2020년 이전 구법"},
+{c:"개념",q:"고유식별정보 4가지는?",a:"주민등록·여권·운전면허·외국인등록번호",t:"카드번호·계좌번호 ✕"},
+{c:"개념",q:"주민등록번호를 동의로 처리할 수 있나?",a:"불가 — 법률·대통령령·헌법기관 규칙, 급박한 이익, 보호위 고시만",t:"부령·조례도 근거 ✕. 내부망도 암호화"},
+{c:"개념",q:"위탁·영업양도에 정보주체 동의가 필요한가?",a:"불필요 — 위탁은 공개, 양도는 통지",t:"별도 동의 대상: 목적 외·민감·고유식별·홍보·국외이전"},
+{c:"개념",q:"법정대리인 동의가 필요한 아동 연령은?",a:"14세 미만",t:"\"19세 미만\"은 오답. 대리인 성명·연락처는 아동에게 직접 수집 가능"},
+{c:"개념",q:"가명정보가 유출되면?",a:"신고는 하지만 정보주체 통지는 안 함",t:"제34조①·열람·정정·전송 등 미적용, 안전조치·신고는 적용"},
+{c:"개념",q:"가명정보 동의 없이 처리 가능한 목적 3가지?",a:"통계작성·과학적 연구·공익적 기록보존",t:"마케팅 ✕. 상업적 통계·산업적 연구는 ○"},
+{c:"개념",q:"익명처리와 가명처리 중 우선은?",a:"익명 가능하면 익명, 어려우면 가명",t:"순서를 바꾼 선택지가 오답"},
+{c:"개념",q:"유출등의 정의 6가지는?",a:"분실·도난·유출·위조·변조·훼손",t:"위조·변조·훼손은 2026.9.11 추가"},
+{c:"개념",q:"수집·이용 동의 고지사항 4가지?",a:"목적 / 항목 / 보유·이용 기간 / 거부권과 불이익",t:"제3자 제공은 5가지(받는 자, 받는 자의 목적 추가)"},
+{c:"개념",q:"계약 이행 수집 근거의 현행 문구는?",a:"\"필요한 경우\"",t:"\"불가피하게 필요한\"은 구법. 법령상 의무·공공기관 소관업무에는 '불가피' 유지"},
+{c:"개념",q:"영향평가서 보호위원회 제출 시기는?",a:"개인정보파일 운용·변경 전",t:"\"완료 후 2개월\"은 2023 삭제. 이행점검확인서는 1년"},
+{c:"개념",q:"개인정보 보호 인증 의무화(제32조의2) 시행일은?",a:"2027.7.1",t:"나머지 2026 개정 조문은 2026.9.11"},
+{c:"개념",q:"현행법이 아닌 것은? 자료보전 명령 / 유출 가능성 통지",a:"자료보전 명령·이행강제금 — 국회 계류 중",t:"선택지에 \"도입되었다\"가 나오면 오답"},
+// 기술
+{c:"기술",q:"IDS와 IPS의 역할은?",a:"IDS 탐지·경고 / IPS 인라인 차단",t:"역할 바꿔 출제. 오탐 = 정상을 공격으로"},
+{c:"기술",q:"비밀번호 저장 방식은?",a:"일방향 해시 + 솔트",t:"\"복호화 가능하게 저장\"은 오답"},
+{c:"기술",q:"주민등록번호 저장 시 암호화 범위는?",a:"인터넷·DMZ·내부망 모두",t:"여권·면허·외국인번호는 내부망은 위험도 분석으로 결정"},
+{c:"기술",q:"공개키와 대칭키, 어느 쪽이 빠른가?",a:"대칭키. 공개키는 느려서 세션키 교환에만 (하이브리드)",t:"\"공개키가 더 빠르다\"는 오답"},
+{c:"기술",q:"취약한 알고리즘 5개?",a:"MD5·SHA-1·DES·RC4·RSA-1024",t:"안전: AES·SEED·ARIA·LEA, RSA 2048+, SHA-224+"},
+{c:"기술",q:"비밀번호 + PIN은 2요소 인증인가?",a:"아니다 — 둘 다 지식 요소",t:"지식+소유(OTP) 또는 지식+생체여야 2FA"},
+{c:"기술",q:"k-익명성이 못 막는 공격과 보완 모델은?",a:"동질성·배경지식 공격 → l-다양성",t:"l-다양성의 한계(쏠림·유사성)는 t-근접성이 보완"},
+{c:"기술",q:"휴지통 비우기는 파기인가?",a:"아니다 — 덮어쓰기·디가우징·물리 파괴가 파기",t:"일부 파기는 마스킹·천공"},
+{c:"기술",q:"보안 프로그램 업데이트 주기는?",a:"자동 업데이트 또는 일 1회 이상",t:"월 1회는 오답"},
+{c:"기술",q:"ALE 공식은?",a:"ALE = SLE × ARO",t:"1억 × 0.2 = 2천만. 보험 가입은 위험 '전가'"},
+{c:"기술",q:"ISMS-P 인증기준 개수는?",a:"16 + 64 + 21 = 101 (ISMS만 80)",t:"심사원 등급 4단계, '수석' 없음"},
+{c:"기술",q:"DoA(수용 가능 위험 수준)는 누가 승인?",a:"경영진",t:"PDCA에서 내부감사는 Check"}
+];
+
+</script>
+<script>
+(function(){
+const ALL=window.CPPG_CARDS||[]; const $=id=>document.getElementById(id);
+const KEY='cppg_cards_v1'; let st={miss:{},seen:{},cat:'',missOnly:false,tts:false};
+try{Object.assign(st,JSON.parse(localStorage.getItem(KEY)||'{}'))}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}};
+const keyOf=c=>c.q;
+let deck=[],i=0,flipped=false,autoT=null,el=null;
+
+function shuffle(a){for(let k=a.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[a[k],a[j]]=[a[j],a[k]]}return a}
+function build(){
+  let d=ALL.filter(c=>!st.cat||c.c===st.cat);
+  if(st.missOnly) d=d.filter(c=>st.miss[keyOf(c)]);
+  // 틀린 카드와 안 본 카드를 앞쪽으로
+  d=shuffle(d).sort((a,b)=>(st.miss[keyOf(b)]?2:!st.seen[keyOf(b)]?1:0)-(st.miss[keyOf(a)]?2:!st.seen[keyOf(a)]?1:0));
+  deck=d;i=0;render();
+}
+function render(dir){
+  const stage=$('stage'); const old=el;
+  if(old&&dir){old.classList.add(dir==='next'?'out-up':'out-down');setTimeout(()=>old.remove(),350)} else stage.innerHTML='';
+  $('pos').textContent=(Math.min(i+1,deck.length))+' / '+deck.length;
+  $('barI').style.width=(deck.length?i/deck.length*100:0)+'%';
+  if(i>=deck.length){ el=document.createElement('div'); el.className='done';
+    const missed=deck.filter(c=>st.miss[keyOf(c)]).length;
+    el.innerHTML='<div class="tag">한 바퀴 끝</div><div class="n">'+(deck.length-missed)+'<span style="font-size:20px;color:var(--muted)"> / '+deck.length+'</span></div><div style="color:var(--muted)">틀린 카드 '+missed+'장</div><div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center"><button id="again">다시 섞기</button>'+(missed?'<button id="onlyMiss">틀린 것만 돌리기</button>':'')+'</div>';
+    stage.appendChild(el); $('again').onclick=build; const om=$('onlyMiss'); if(om) om.onclick=()=>{st.missOnly=true;$('missOnly').setAttribute('aria-pressed','true');save();build()};
+    stopAuto(); return; }
+  const c=deck[i]; flipped=false;
+  el=document.createElement('div'); el.className='card'; el.setAttribute('role','button'); el.setAttribute('aria-label','카드 뒤집기');
+  const bg='var(--c'+c.c+')';
+  el.innerHTML=`<div class="face front" style="background:${bg}"><div class="tag"><span>${c.c}</span><b>${st.miss[keyOf(c)]?'✕ 틀렸던 카드':''}</b></div><div class="q">${esc(c.q)}</div><div class="hint">탭하면 정답 · 위로 밀면 다음</div></div>
+  <div class="face back" style="background:${bg}"><div class="tag"><span>${c.c}</span><b>정답</b></div><div class="a"><div class="q2">${esc(c.q)}</div><div class="big">${esc(c.a)}</div></div><div class="trap">${esc(c.t)}</div></div>`;
+  el.onclick=flip; stage.appendChild(el);
+  st.seen[keyOf(c)]=1; save();
+  if(st.tts) speak(c.q);
+}
+function esc(s){return String(s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]))}
+function flip(){ if(!el||i>=deck.length) return; flipped=!flipped; el.classList.toggle('flip',flipped); if(flipped&&st.tts) speak(deck[i].a+'. '+deck[i].t); }
+function mark(know){ if(i>=deck.length) return; const k=keyOf(deck[i]); if(know) delete st.miss[k]; else st.miss[k]=1; save(); next(); }
+function next(){ if(i>=deck.length) return; i++; render('next'); }
+function prev(){ if(i<=0) return; i--; render('prev'); }
+$('bFlip').onclick=flip; $('bKnow').onclick=()=>mark(true); $('bMiss').onclick=()=>mark(false);
+$('cat').value=st.cat; $('cat').onchange=e=>{st.cat=e.target.value;save();build()};
+$('missOnly').setAttribute('aria-pressed',st.missOnly); $('missOnly').onclick=()=>{st.missOnly=!st.missOnly;$('missOnly').setAttribute('aria-pressed',st.missOnly);save();build()};
+$('tts').setAttribute('aria-pressed',st.tts); $('tts').onclick=()=>{st.tts=!st.tts;$('tts').setAttribute('aria-pressed',st.tts);save(); if(!st.tts) window.speechSynthesis&&speechSynthesis.cancel();};
+function speak(t){ try{ speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance(t.replace(/[·→✕]/g,' ')); u.lang='ko-KR'; const v=speechSynthesis.getVoices().filter(v=>/^ko/i.test(v.lang)); const p=v.find(x=>/Natural|Neural|Google|Yuna/.test(x.name))||v[0]; if(p) u.voice=p; speechSynthesis.speak(u);}catch(e){} }
+// 자동 넘김: 앞면 4초 → 뒤집기 → 6초 → 다음
+function startAuto(){ stopAuto(); const step=()=>{ if(i>=deck.length){stopAuto();return} if(!flipped){flip();autoT=setTimeout(step,6000)} else {next();autoT=setTimeout(step,4000)} }; autoT=setTimeout(step,4000); }
+function stopAuto(){ clearTimeout(autoT); autoT=null; $('auto').setAttribute('aria-pressed','false'); }
+$('auto').onclick=()=>{ if(autoT) stopAuto(); else {$('auto').setAttribute('aria-pressed','true'); startAuto();} };
+// 스와이프
+let y0=null,x0=null; const stage=$('stage');
+stage.addEventListener('touchstart',e=>{y0=e.touches[0].clientY;x0=e.touches[0].clientX},{passive:true});
+stage.addEventListener('touchend',e=>{ if(y0==null) return; const dy=e.changedTouches[0].clientY-y0, dx=e.changedTouches[0].clientX-x0; y0=null; if(Math.abs(dy)>60&&Math.abs(dy)>Math.abs(dx)){ dy<0?next():prev(); } else if(Math.abs(dx)>80){ mark(dx>0); } });
+document.addEventListener('keydown',e=>{ if(e.target.tagName==='SELECT') return; if(e.code==='Space'||e.key==='Enter'){e.preventDefault();flip()} else if(e.key==='ArrowDown'||e.key==='ArrowRight'){next()} else if(e.key==='ArrowUp'||e.key==='ArrowLeft'){prev()} else if(e.key==='1'){mark(false)} else if(e.key==='2'){mark(true)} });
+build();
+})();
+</script>
+
+</body></html>
